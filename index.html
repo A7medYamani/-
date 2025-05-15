@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🎭😊 تمييز تعابير الوجه</title>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #image-container {
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 5px #888888;
+            margin-bottom: 20px;
+            width: 200px;
+            height: 200px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #image-container img {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        #prediction-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 2px 2px 5px #888888;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .prediction {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #555;
+        }
+        .probability {
+            font-weight: bold;
+            color: #007bff;
+        }
+        #loading {
+            color: #777;
+            margin-top: 10px;
+        }
+        input[type="file"] {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #analyzeButton {
+            display: none; /* إخفاء الزر في البداية */
+        }
+    </style>
+</head>
+<body>
+    <h1>🎭😊 تمييز تعابير الوجه</h1>
+    <input type="file" id="imageUpload" accept="image/*">
+    <div id="image-container"></div>
+    <button id="analyzeButton">تحليل الصورة</button>
+    <div id="prediction-container">
+        <div id="loading">⏳ جارٍ تحميل النموذج...</div>
+    </div>
+    <script type="text/javascript">
+        const URL = "./"; // تأكد أن هذا المسار صحيح لمكان ملفات الموديل
+
+        let model, predictionContainer, maxPredictions, currentImage;
+        const imageContainer = document.getElementById('image-container');
+        const imageUpload = document.getElementById('imageUpload');
+        const analyzeButton = document.getElementById('analyzeButton');
+        const loadingDiv = document.getElementById('loading');
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            try {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+                predictionContainer = document.getElementById("prediction-container");
+                loadingDiv.textContent = "تم تحميل النموذج بنجاح. اختر صورة واضغط تحليل.";
+                analyzeButton.style.display = 'none'; // إخفاء زر التحليل حتى يتم رفع الصورة
+            } catch (error) {
+                console.error("فيه مشكلة في تحميل النموذج:", error);
+                loadingDiv.textContent = "❌ فشل تحميل النموذج. تأكد من وجود الملفات.";
+            }
+        }
+
+        async function predictImage() {
+            if (model && currentImage) {
+                const prediction = await model.predict(currentImage);
+                predictionContainer.innerHTML = ""; // مسح التوقعات القديمة
+
+                // ترتيب التوقعات حسب الاحتمالية
+                prediction.sort((a, b) => b.probability - a.probability);
+
+                for (let i = 0; i < maxPredictions; i++) {
+                    const classPrediction =
+                        `<div class="prediction">${prediction[i].className}: <span class="probability">${(prediction[i].probability * 100).toFixed(2)}%</span></div>`;
+                    predictionContainer.innerHTML += classPrediction;
+                }
+            } else {
+                predictionContainer.textContent = "⚠ لم يتم تحميل النموذج أو اختيار صورة.";
+            }
+        }
+
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    imageContainer.innerHTML = '';
+                    imageContainer.appendChild(img);
+                    currentImage = img; // تخزين الصورة الحالية
+                    analyzeButton.style.display = 'block'; // إظهار زر التحليل بعد رفع الصورة
+                }
+                reader.readAsDataURL(file);
+            } else {
+                // مسح الصورة وإخفاء زر التحليل إذا لم يتم اختيار ملف
+                imageContainer.innerHTML = '';
+                analyzeButton.style.display = 'none';
+                predictionContainer.innerHTML = '';
+                currentImage = null;
+            }
+        });
+
+        analyzeButton.addEventListener('click', predictImage);
+
+        // قم بتحميل النموذج عند بدء تشغيل الصفحة
+        init();
+    </script>
+</body>
+</html>
